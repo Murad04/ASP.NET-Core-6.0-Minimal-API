@@ -1,3 +1,6 @@
+using ASP.NET_Core_6._0_Minimal_API.Context;
+using ASP.NET_Core_6._0_Minimal_API.DTO;
+using ASP.NET_Core_6._0_Minimal_API.Models;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
@@ -88,41 +91,3 @@ app.MapDelete("/products/deleteProduct/{productId}", async (int productID, Produ
 });
 
 app.Run();
-
-
-public class Products
-{
-    [Key]
-    public int ProductID { get; set; }
-    public string ProductName { get; set; } = null!;
-    public string ProductDescription { get; set; } = null!;
-    public string ProductCompany { get; set; } = null!;
-    public decimal ProductPrice { get; set; }
-    public int ProductCount { get; set; }
-    public bool IsAvailable { get; set; }
-    public string? Secret { get; set; }
-}
-
-public class ProductsDTO
-{
-    [Key]
-    public int ProductID { get; set; }
-    public string ProductName { get; set; } = null!;
-    public string ProductDescription { get; set; } = null!;
-    public string ProductCompany { get; set; } = null!;
-    public decimal ProductPrice { get; set; }
-    public int ProductCount { get; set; }
-    public bool IsAvailable { get; set; }
-
-    public ProductsDTO() { }
-    public ProductsDTO(Products product) =>
-        (ProductID, ProductName, ProductDescription, ProductCompany, ProductPrice, ProductCount, IsAvailable)
-        = (product.ProductID, product.ProductName, product.ProductDescription, product.ProductCompany, product.ProductPrice, product.ProductCount, product.IsAvailable);
-}
-
-public class ProductsDB : DbContext
-{
-    public ProductsDB(DbContextOptions<ProductsDB> options) : base(options) { }
-
-    public DbSet<Products> Products => Set<Products>();
-}
