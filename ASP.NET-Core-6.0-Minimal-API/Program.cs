@@ -8,9 +8,9 @@ var app = builder.Build();
 
 app.MapGet("/", () => "Hello World");
 
-app.MapGet("/productItems", async (ProductsDB db) => await db.Products.ToListAsync());
+app.MapGet("/productItems", async (ProductsDB db) => await db.Products.Select(x => new ProductsDTO(x)).ToListAsync());
 
-app.MapGet("/productItems/{productID}", async (int productID, ProductsDB db) => await db.Products.FindAsync(productID) is Products products ? Results.Ok(products) : Results.NotFound());
+app.MapGet("/productItems/{productID}", async (int productID, ProductsDB db) => await db.Products.FindAsync(productID) is Products products ? Results.Ok(new ProductsDTO(products)) : Results.NotFound());
 
 app.MapPut("/productItems/Finish/{productId}", async (int productId, ProductsDB db) =>
 {
@@ -23,7 +23,7 @@ app.MapPut("/productItems/Finish/{productId}", async (int productId, ProductsDB 
     return Results.NoContent();
 });
 
-app.MapPut("/products/productUpdate/{productID}", async (int productID, Products intputProductData, ProductsDB db) =>
+app.MapPut("/products/productUpdate/{productID}", async (int productID, ProductsDTO intputProductData, ProductsDB db) =>
 {
     var data_from_products = await db.Products.FindAsync(productID);
     if (data_from_products is null) return Results.NotFound();
@@ -32,7 +32,7 @@ app.MapPut("/products/productUpdate/{productID}", async (int productID, Products
     data_from_products.ProductPrice = intputProductData.ProductPrice;
     data_from_products.ProductCompany = intputProductData.ProductCompany;
     if (intputProductData.ProductCount > 0) data_from_products.ProductCount = intputProductData.ProductCount;
-    else { data_from_products.IsAvailable = false; data_from_products.IsAvailable = false; }
+    else { data_from_products.IsAvailable = false; data_from_products.ProductCount = 0; }
     await db.SaveChangesAsync();
     return Results.NoContent();
 });
@@ -58,11 +58,22 @@ app.MapPut("/products/updateCount/{productID}", async (int productID, ProductsDB
     return Results.NotFound();
 });
 
-app.MapPost("/products/addProduct", async (Products product, ProductsDB db) =>
+app.MapPost("/products/addProduct", async (ProductsDTO productDTO, ProductsDB db) =>
 {
+    var product = new Products
+    {
+        ProductID = productDTO.ProductID,
+        ProductName = productDTO.ProductName,
+        ProductDescription = productDTO.ProductDescription,
+        ProductPrice = productDTO.ProductPrice,
+        ProductCompany = productDTO.ProductCompany,
+        ProductCount = productDTO.ProductCount,
+        IsAvailable = productDTO.IsAvailable,
+    };
+
     db.Products.Add(product);
     await db.SaveChangesAsync();
-    return Results.Created($"/productItems/{product.ProductID}", product);
+    return Results.Created($"/productItems/{product.ProductID}", new ProductsDTO(product));
 });
 
 app.MapDelete("/products/deleteProduct/{productId}", async (int productID, ProductsDB db) =>
@@ -71,7 +82,7 @@ app.MapDelete("/products/deleteProduct/{productId}", async (int productID, Produ
     {
         db.Products.Remove(products);
         await db.SaveChangesAsync();
-        return Results.Ok(products);
+        return Results.Ok(new ProductsDTO(products));
     }
     return Results.NotFound();
 });
@@ -79,7 +90,7 @@ app.MapDelete("/products/deleteProduct/{productId}", async (int productID, Produ
 app.Run();
 
 
-class Products
+public class Products
 {
     [Key]
     public int ProductID { get; set; }
@@ -89,9 +100,27 @@ class Products
     public decimal ProductPrice { get; set; }
     public int ProductCount { get; set; }
     public bool IsAvailable { get; set; }
+    public string? Secret { get; set; }
 }
 
-class ProductsDB : DbContext
+public class ProductsDTO
+{
+    [Key]
+    public int ProductID { get; set; }
+    public string ProductName { get; set; } = null!;
+    public string ProductDescription { get; set; } = null!;
+    public string ProductCompany { get; set; } = null!;
+    public decimal ProductPrice { get; set; }
+    public int ProductCount { get; set; }
+    public bool IsAvailable { get; set; }
+
+    public ProductsDTO() { }
+    public ProductsDTO(Products product) =>
+        (ProductID, ProductName, ProductDescription, ProductCompany, ProductPrice, ProductCount, IsAvailable)
+        = (product.ProductID, product.ProductName, product.ProductDescription, product.ProductCompany, product.ProductPrice, product.ProductCount, product.IsAvailable);
+}
+
+public class ProductsDB : DbContext
 {
     public ProductsDB(DbContextOptions<ProductsDB> options) : base(options) { }
 
