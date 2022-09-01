@@ -37,6 +37,27 @@ app.MapPut("/products/productUpdate/{productID}", async (int productID, Products
     return Results.NoContent();
 });
 
+app.MapPut("/products/updateCount/{productID}", async (int productID, ProductsDB db) =>
+{
+    var product = await db.Products.FindAsync(productID);
+    if (product is not null)
+    {
+        if (product.ProductCount == 1)
+        {
+            product.IsAvailable = false;
+            product.ProductCount = 0;
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            product.ProductCount = product.ProductCount - 1;
+            await db.SaveChangesAsync();
+        }
+        return Results.Ok(product);
+    }
+    return Results.NotFound();
+});
+
 app.MapPost("/products/addProduct", async (Products product, ProductsDB db) =>
 {
     db.Products.Add(product);
