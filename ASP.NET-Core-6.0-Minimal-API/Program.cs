@@ -1,41 +1,78 @@
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
+builder.Services.AddDbContext<ProductsDB>(opt => opt.UseInMemoryDatabase("ProductsList"));
+builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.MapGet("/", () => "Hello World");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.MapGet("/productItems", async (ProductsDB db) => await db.Products.ToListAsync());
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/productItems/{productID}", async (int productID, ProductsDB db) => await db.Products.FindAsync(productID) is Products products ? Results.Ok(products) : Results.NotFound());
+
+app.MapPut("/productItems/Finish/{productId}", async (int productId, ProductsDB db) =>
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateTime.Now.AddDays(index),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var product = await db.Products.FindAsync(productId);
+
+    if (product is null) return Results.NotFound();
+    product.IsAvailable = false;
+    product.ProductCount = 0;
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapPut("/products/productUpdate/{productID}", async (int productID, Products intputProductData, ProductsDB db) =>
+{
+    var data_from_products = await db.Products.FindAsync(productID);
+    if (data_from_products is null) return Results.NotFound();
+    data_from_products.ProductName = intputProductData.ProductName;
+    data_from_products.ProductDescription = intputProductData.ProductDescription;
+    data_from_products.ProductPrice = intputProductData.ProductPrice;
+    data_from_products.ProductCompany = intputProductData.ProductCompany;
+    if (intputProductData.ProductCount > 0) data_from_products.ProductCount = intputProductData.ProductCount;
+    else { data_from_products.IsAvailable = false; data_from_products.IsAvailable = false; }
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapPost("/products/addProduct", async (Products product, ProductsDB db) =>
+{
+    db.Products.Add(product);
+    await db.SaveChangesAsync();
+    return Results.Created($"/productItems/{product.ProductID}", product);
+});
+
+app.MapDelete("/products/deleteProduct/{productId}", async (int productID, ProductsDB db) =>
+{
+    if (await db.Products.FindAsync(productID) is Products products)
+    {
+        db.Products.Remove(products);
+        await db.SaveChangesAsync();
+        return Results.Ok(products);
+    }
+    return Results.NotFound();
+});
 
 app.Run();
 
-internal record WeatherForecast(DateTime Date, int TemperatureC, string? Summary)
+
+class Products
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    [Key]
+    public int ProductID { get; set; }
+    public string ProductName { get; set; } = null!;
+    public string ProductDescription { get; set; } = null!;
+    public string ProductCompany { get; set; } = null!;
+    public decimal ProductPrice { get; set; }
+    public int ProductCount { get; set; }
+    public bool IsAvailable { get; set; }
+}
+
+class ProductsDB : DbContext
+{
+    public ProductsDB(DbContextOptions<ProductsDB> options) : base(options) { }
+
+    public DbSet<Products> Products => Set<Products>();
 }
